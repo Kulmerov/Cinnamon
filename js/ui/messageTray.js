@@ -145,29 +145,6 @@ URLHighlighter.prototype = {
             }
             return false;
         }));
-        this.actor.connect('motion-event', Lang.bind(this, function(actor, event) {
-            if (!actor.visible || actor.get_paint_opacity() == 0)
-                return false;
-
-            let urlId = this._findUrlAtPos(event);
-            if (urlId != -1 && !this._cursorChanged) {
-                global.set_cursor(Cinnamon.Cursor.POINTING_HAND);
-                this._cursorChanged = true;
-            } else if (urlId == -1) {
-                global.unset_cursor();
-                this._cursorChanged = false;
-            }
-            return false;
-        }));
-        this.actor.connect('leave-event', Lang.bind(this, function() {
-            if (!this.actor.visible || this.actor.get_paint_opacity() == 0)
-                return;
-
-            if (this._cursorChanged) {
-                this._cursorChanged = false;
-                global.unset_cursor();
-            }
-        }));
     },
 
     setMarkup: function(text, allowMarkup) {
