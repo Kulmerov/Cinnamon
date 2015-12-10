@@ -438,17 +438,18 @@ Notification.prototype = {
         this.actor._parent_container = null;
         this.actor.connect('clicked', Lang.bind(this, this._onClicked));
         this.actor.connect('destroy', Lang.bind(this, this._onDestroy));
+        this.actor.opacity = ((Main.messageTray.fadeOpacity / 100) * 255).clamp(0, 255);
 		// Transparency on mouse over?
 		if (Main.messageTray.fadeOnMouseover) {
 			// Register to every notification as we intend to support multiple notifications on screen.
-			this.enter_id = this.actor.connect('enter-event', Lang.bind(this, function() {
+			this.enter_id = this.actor.connect('leave-event', Lang.bind(this, function() {
 				Tweener.addTween(this.actor, {
 					opacity: ((Main.messageTray.fadeOpacity / 100) * 255).clamp(0, 255),
 					time: ANIMATION_TIME,
 					transition: 'easeOutQuad'
 				});
 			}));
-			this.leave_id = this.actor.connect('leave-event', Lang.bind(this, function() {
+			this.leave_id = this.actor.connect('enter-event', Lang.bind(this, function() {
 				Tweener.addTween(this.actor, {
 					opacity: (this._table.get_theme_node().get_length('opacity') / global.ui_scale) || 255,
 					time: ANIMATION_TIME,
