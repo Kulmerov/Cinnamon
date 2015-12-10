@@ -1449,7 +1449,9 @@ MessageTray.prototype = {
         this._reNotifyAfterHideNotification = null;
         
         this._sources = [];
-        Main.layoutManager.addChrome(this._notificationBin);
+        Main.layoutManager.addChrome(this._notificationBin, {
+            visibleInFullscreen : true
+        });
 
         Main.layoutManager.connect('monitors-changed', Lang.bind(this, this._setSizePosition));
 
