@@ -458,6 +458,10 @@ Notification.prototype = {
 			}));
 		}
 
+        this.actor.connect('motion-event', Lang.bind(this, function(){
+            global.set_cursor(Cinnamon.Cursor.POINTING_HAND);
+        }));
+
         this._table = new St.Table({ name: 'notification',
                                      reactive: true });
         this._table.connect('style-changed', Lang.bind(this, this._styleChanged));
