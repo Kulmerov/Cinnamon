@@ -433,6 +433,7 @@ Notification.prototype = {
         this.resident = false;
         // 'transient' is a reserved keyword in JS, so we have to use an alternate variable name
         this.isTransient = false;
+        this.isTop = false;
         this.expanded = false;
         this._destroyed = false;
         this._useActionIcons = false;
@@ -813,6 +814,10 @@ Notification.prototype = {
         this.isTransient = isTransient;
     },
 
+    setTop: function(isTop) {
+        this.isTop = isTop;
+    },
+
     setUseActionIcons: function(useIcons) {
         this._useActionIcons = useIcons;
     },
@@ -1062,6 +1067,7 @@ Source.prototype = {
         this.actor.add_actor(this._counterBin);
 
         this.isTransient = false;
+        this.isTop = false;
         this.isChat = false;
 
         this.notifications = [];
@@ -1120,6 +1126,10 @@ Source.prototype = {
 
     setTransient: function(isTransient) {
         this.isTransient = isTransient;
+    },
+
+    setTop: function(isTop) {
+        this.isTop = isTop;
     },
 
     setTitle: function(newTitle) {
@@ -1563,7 +1573,13 @@ MessageTray.prototype = {
                                  Lang.bind(this, this._onNotificationDestroy));
             this._notificationQueue.push(notification);
             this._notificationQueue.sort(function(notification1, notification2) {
-                return (notification2.urgency - notification1.urgency);
+                if (notification1.isTop == notification2.isTop) {
+                    return (notification2.urgency - notification1.urgency);
+                }
+                if (notification1.isTop == true) {
+                    return -1;
+                }
+                return 1;
             });
         }
         this._updateState();
@@ -1601,6 +1617,7 @@ MessageTray.prototype = {
     // at the present time.
     _updateState: function() {
         // Notifications
+        let notificationTop = this._notificationQueue.length > 0 && this._notificationQueue[0].isTop;
         let notificationUrgent = this._notificationQueue.length > 0 && this._notificationQueue[0].urgency == Urgency.CRITICAL;
         let notificationsPending = this._notificationQueue.length > 0 && (!this._busy || notificationUrgent);
         let notificationExpanded = this._notificationBin.y < 0;
@@ -1626,8 +1643,12 @@ MessageTray.prototype = {
                 }
             }
         } else if (this._notificationState == State.SHOWN) {
-            if (notificationExpired)
+            if (notificationExpired) {
                 this._hideNotification();
+            } else if (notificationTop) {
+                this._updateNotificationTimeout(0);
+                this._updateState();
+            }
         }
     },
 

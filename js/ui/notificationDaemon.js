@@ -424,6 +424,7 @@ NotificationDaemon.prototype = {
         // 'transient' is a reserved keyword in JS, so we have to retrieve the value
         // of the 'transient' hint with hints['transient'] rather than hints.transient
         notification.setTransient(hints['transient'] == true);
+        notification.setTop(hints['top'] == true);
 
         let sourceIconActor = source.useNotificationIcon ? this._iconForNotificationData(icon, hints, source.ICON_SIZE) : null;
         source.processNotification(notification, sourceIconActor);
