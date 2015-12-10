@@ -104,7 +104,6 @@ NotificationDaemon.prototype = {
         this._sources = [];
         this._senderToPid = {};
         this._notifications = {};
-        this._expireNotifications = []; // List of expiring notifications in order from first to last to expire.
         this._busProxy = new Bus();
 
         this._expireTimer = 0;
@@ -237,29 +236,6 @@ NotificationDaemon.prototype = {
         if (Main.messageTray) Main.messageTray.add(source);
         return source;
     },
-
-    _startExpire: function() {
-         if (this.removeOld && this._expireNotifications.length && !this._expireTimer) {
-            this._expireTimer = Mainloop.timeout_add_seconds(Math.max((this._expireNotifications[0].expires-Date.now())/1000, 1), Lang.bind(this, this._expireNotification));
-        }
-    },
-    _stopExpire: function() {
-         if (this._expireTimer == 0) {
-            return;
-        }
-         Mainloop.source_remove(this._expireTimer);
-         this._expireTimer = 0;
-    },
-    _restartExpire: function() {
-         this._stopExpire();
-         this._startExpire();
-    },
-    _expireNotification: function() {
-         let ndata = this._expireNotifications[0];
-         ndata.notification.destroy(MessageTray.NotificationDestroyedReason.EXPIRED);
-         this._expireTimer = 0;
-         return false;
-    },
  
     // Sends a notification to the notification daemon. Returns the id allocated to the notification.
     NotifyAsync: function(params, invocation) {
@@ -312,30 +288,6 @@ NotificationDaemon.prototype = {
             ndata.id = id = nextNotificationId++;
         }
         this._notifications[id] = ndata;
-
-        // Find expiration timestamp.
-        let expires;
-        if (!timeout || hints.resident || hints.urgency == 2) { // Never expires.
-            expires = ndata.expires = 0;
-        } else if (timeout == -1) { // Default expiration.
-            expires = ndata.expires = Date.now()+this.timeout*1000;
-        } else {    // Custom expiration.
-             expires = ndata.expires = Date.now()+timeout;
-        }
- 
-        // Does this notification expire?
-        if (expires != 0) {
-            // Find place in the notification queue.
-            let notifications = this._expireNotifications, i;
-            for (i = notifications.length; i > 0; --i) {    // Backwards seach, likely to be faster.
-                if (expires > notifications[i-1].expires) {
-                    notifications.splice(i, 0, ndata);
-                    break;
-                }
-            }
-            if (i == 0) notifications.unshift(ndata);
-            this._restartExpire()
-        }
 
         let sender = invocation.get_sender();
         let pid = this._senderToPid[sender];
@@ -414,17 +366,6 @@ NotificationDaemon.prototype = {
                         case MessageTray.NotificationDestroyedReason.SOURCE_CLOSED:
                             notificationClosedReason = NotificationClosedReason.APP_CLOSED;
                             break;
-                    }
-                    // Remove from expiring?
-                    if (ndata.expires) {
-                        let notifications = this._expireNotifications;
-                        for (var i = 0, j = notifications.length; i < j; ++i) {
-                            if (notifications[i] == ndata) {
-                                notifications.splice(i, 1);
-                                break;
-                             }
-                        }
-                        this._restartExpire();
                     }
                     this._emitNotificationClosed(ndata.id, notificationClosedReason);
                 }));
