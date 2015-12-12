@@ -1545,6 +1545,27 @@ MessageTray.prototype = {
         this._updateState();
     },
 
+    _onButtonPress: function(actor, event) {
+        if (event.get_button() == 2) {
+            this._hideAll();
+        }
+    },
+
+    _hideAll: function() {
+        this._updateNotificationTimeout(0);
+        this._focusGrabber.ungrabFocus();
+        if (this._notificationExpandedId) {
+            this._notification.disconnect(this._notificationExpandedId);
+            this._notificationExpandedId = 0;
+        }
+        this._notificationState =  State.HIDDEN;
+        this._hideNotificationCompleted();
+        for (let i = 0; i <  this._notificationQueue.length; i++) {
+            this.emit('notify-applet-update', this._notificationQueue[i]);
+        }
+        this._notificationQueue = [];
+    },
+
     _onNotify: function(source, notification) {
         if (this._notification == notification) {
             // If a notification that is being shown is updated, we update
@@ -1553,6 +1574,7 @@ MessageTray.prototype = {
             // we stop hiding it and show it again.
             this._updateShowingNotification();
         } else if (this._notificationQueue.indexOf(notification) < 0) {
+            notification.actor.connect('button-press-event', Lang.bind(this, this._onButtonPress));
             notification.connect('destroy',
                                  Lang.bind(this, this._onNotificationDestroy));
             this._notificationQueue.push(notification);
