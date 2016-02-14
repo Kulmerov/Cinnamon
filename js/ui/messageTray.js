@@ -1577,6 +1577,12 @@ MessageTray.prototype = {
             notification.actor.connect('button-press-event', Lang.bind(this, this._onButtonPress));
             notification.connect('destroy',
                                  Lang.bind(this, this._onNotificationDestroy));
+            notification.actor.connect('enter-event', Lang.bind(this, function() {
+                this._updateNotificationTimeout(0, false);
+            }));
+            notification.actor.connect('leave-event', Lang.bind(this, function() {
+                this._assignNotificationTimeout();
+            }));
             this._notificationQueue.push(notification);
             this._notificationQueue.sort(function(notification1, notification2) {
                 if (notification1.isTop == notification2.isTop) {
@@ -1653,7 +1659,7 @@ MessageTray.prototype = {
                 this._hideNotification();
             } else if (notificationTop) {
                 this._updateNotificationTimeout(0);
-                this._updateState();
+                this._hideNotification();
             }
         }
     },
@@ -1675,14 +1681,13 @@ MessageTray.prototype = {
 
     _tweenComplete: function(statevar, value, onComplete, onCompleteScope, onCompleteParams) {
         this[statevar] = value;
-        if (onComplete)
+        if (onComplete) {
             onComplete.apply(onCompleteScope, onCompleteParams);
-        this._updateState();
+            this._updateState();
+        }
     },
 
     _showNotification: function() {
-        this._notificationTimeoutId = 1; // this prevents a race condition with the messagetray wanting
-                                         // to hide a notification before it's done showing it, when updating from applet
         this._notification = this._notificationQueue.shift();
         if (this._notification.actor._parent_container) {
             this._notification.collapseCompleted();
@@ -1732,18 +1737,16 @@ MessageTray.prototype = {
         // This ensures that both new notifications and notifications in the banner mode that might
         // have been in the process of hiding are shown with the banner height.
         //
-        // We use this._showNotificationCompleted() onComplete callback to extend the time the updated
+        // We use this._assignNotificationTimeout() onComplete callback to extend the time the updated
         // notification is being shown.
         //
         // We don't set the y parameter for the tween for expanded notifications because
         // this._expandNotification() will result in getting this._notificationBin.y set to the appropriate
         // fully expanded value.
         let tweenParams = { opacity: 255,
-                            time: ANIMATION_TIME,
-                            transition: 'easeOutQuad',
-                            onComplete: this._showNotificationCompleted,
-                            onCompleteScope: this
-                          };
+            time: ANIMATION_TIME,
+            transition: 'easeOutQuad'
+        };
         let monitor = Main.layoutManager.primaryMonitor;
         let panel = Main.panelManager.getPanel(0, false); // We only want the top panel in monitor 0
         let height = 5;
@@ -1753,11 +1756,14 @@ MessageTray.prototype = {
         if (!this._notification.expanded)        	 
             tweenParams.y = monitor.y + height;
 
-        this._tween(this._notificationBin, '_notificationState', State.SHOWN, tweenParams);
+        this._notificationState = State.SHOWN;
+        this._assignNotificationTimeout();
+        this._notificationRemoved = false;
+        global.sync_pointer();
+        Tweener.addTween(this._notificationBin, tweenParams);
    },
 
-    _showNotificationCompleted: function() {
-        this._notificationTimeoutId = 0;
+    _assignNotificationTimeout: function() {
         if (this._notification.urgency != Urgency.CRITICAL) {
             this._updateNotificationTimeout(NOTIFICATION_TIMEOUT * 1000);
         } else if (AppletManager.get_role_provider_exists(AppletManager.Roles.NOTIFICATIONS)) {
@@ -1765,31 +1771,25 @@ MessageTray.prototype = {
         }
     },
 
-    _updateNotificationTimeout: function(timeout) {
-        if (this._notificationTimeoutId) {
+    _updateNotificationTimeout: function(timeout, isNotificationExpired=true) {
+        if (this._notificationTimeoutId > 0) {
             Mainloop.source_remove(this._notificationTimeoutId);
-            this._notificationTimeoutId = 0;
+            if (isNotificationExpired == true) {
+                this._notificationTimeoutId = 0;
+            } else {
+                this._notificationTimeoutId = -1;
+            }
         }
-        if (timeout > 0)
+        if (timeout > 0) {
             this._notificationTimeoutId =
                 Mainloop.timeout_add(timeout,
-                                     Lang.bind(this, this._notificationTimeout));
+                    Lang.bind(this, this._notificationTimeout));
+        }
     },
 
     _notificationTimeout: function() {
-        let [x, y, mods] = global.get_pointer();
-        if (y > this._lastSeenMouseY + 10) {
-            // The mouse is moving towards the notification, so don't
-            // hide it yet. (We just create a new timeout (and destroy
-            // the old one) each time because the bookkeeping is
-            // simpler.)
-            this._lastSeenMouseY = y;
-            this._updateNotificationTimeout(1000);
-        } else {
-            this._notificationTimeoutId = 0;
-            this._updateState();
-        }
-
+        this._updateNotificationTimeout(0);
+        this._updateState();
         return false;
     },
 
@@ -1824,7 +1824,6 @@ MessageTray.prototype = {
                 notification.destroy(NotificationDestroyedReason.EXPIRED);  
         }
         this._notification = null;
-        this._notificationRemoved = false;
     },
 
     _expandNotification: function(autoExpanding) {
@@ -1858,13 +1857,14 @@ MessageTray.prototype = {
 
         if (this._notificationBin.y < expandedY)
             this._notificationBin.y = expandedY;
-        else if (this._notification.y != expandedY)
-            this._tween(this._notificationBin, '_notificationState', State.SHOWN,
-                        { y: newY,
-                          time: ANIMATION_TIME,
-                          transition: 'easeOutQuad'
-                        });
-
+        else if (this._notification.y != expandedY) {
+            let tweenParams = { y: newY,
+                time: ANIMATION_TIME,
+                transition: 'easeOutQuad'
+            };
+            Tweener.addTween(this._notificationBin, tweenParams);
+        }
+        global.sync_pointer();
    },
 
     // We use this function to grab focus when the user moves the pointer
