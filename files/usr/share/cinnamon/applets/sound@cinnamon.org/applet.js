@@ -137,7 +137,8 @@ VolumeSlider.prototype = {
     _onValueChanged: function(){
         if(!this.stream) return;
 
-        let volume = this._value * this.applet._volumeMax, muted;
+        let volume = this._value * this.applet._volumeMax;
+        let muted;
 
         if(this._value < .005){
             volume = 0;
@@ -172,7 +173,7 @@ VolumeSlider.prototype = {
 
     _volumeToIcon: function(value){
         if(value < .005)
-            return this.isMic? "microphone-sensitivity-none" : "audio-volume-muted";
+            return this.isMic? "microphone-sensitivity-none" : "audio-volume-muted-symbolic";
         let n = Math.floor(3 * value), icon;
         if(n < 1)
             icon = "low";
@@ -181,7 +182,7 @@ VolumeSlider.prototype = {
         else
             icon = "high";
 
-        return this.isMic? "microphone-sensitivity-" + icon : "audio-volume-" + icon;
+        return this.isMic? "microphone-sensitivity-" + icon : "audio-volume-" + icon + "-symbolic";
     }
 }
 
@@ -1039,9 +1040,11 @@ MyApplet.prototype = {
     _toggle_out_mute: function() {
         if (this._output.is_muted) {
             this._output.change_is_muted(false);
+            this._notifyVolumeChange(this._output, false);
             this.mute_out_switch.setToggleState(false);
         } else {
             this._output.change_is_muted(true);
+            this._notifyVolumeChange(this._output, true);
             this.mute_out_switch.setToggleState(true);
         }
     },
@@ -1076,7 +1079,7 @@ MyApplet.prototype = {
             this._output.change_is_muted(false);
         }
 
-        this._notifyVolumeChange(this._output);
+        this._notifyVolumeChange(this._output, false);
     },
 
     _onButtonPressEvent: function (actor, event) {
@@ -1314,6 +1317,18 @@ MyApplet.prototype = {
     },
 
     _notifyVolumeChange: function(stream) {
+    	let value = -1;
+        if (isMuted) {
+            value = 0;
+        } else {
+            value = this._output.volume / this._volumeMax;
+        }
+        let percentage = Math.round(value * 100);
+        let iconName = this._outputVolumeSection._volumeToIcon(value);
+        icon = Gio.Icon.new_for_string(iconName);
+        Main.osdWindow.setIcon(icon);
+        Main.osdWindow.setLevel(percentage);
+        Main.osdWindow.show();
         Main.soundManager.playVolume('volume', stream.decibel);
     },
 
