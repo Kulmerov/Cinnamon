@@ -1577,7 +1577,9 @@ MessageTray.prototype = {
                 this._updateNotificationTimeout(0, false);
             }));
             notification.actor.connect('leave-event', Lang.bind(this, function() {
-                this._assignNotificationTimeout();
+                if (notification.urgency != Urgency.CRITICAL) {
+                    this._assignNotificationTimeout();
+                }
             }));
             this._notificationQueue.push(notification);
             this._notificationQueue.sort(function(notification1, notification2) {
