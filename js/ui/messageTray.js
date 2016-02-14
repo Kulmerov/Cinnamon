@@ -425,9 +425,6 @@ Notification.prototype = {
         this._timestamp = new Date();
         this._inNotificationBin = false;
 
-        this.enter_id = 0;
-        this.leave_id = 0;
-
         source.connect('destroy', Lang.bind(this,
             function (source, reason) {
                 this.destroy(reason);
@@ -442,14 +439,14 @@ Notification.prototype = {
 		// Transparency on mouse over?
 		if (Main.messageTray.fadeOnMouseover) {
 			// Register to every notification as we intend to support multiple notifications on screen.
-			this.enter_id = this.actor.connect('leave-event', Lang.bind(this, function() {
+			this.actor.connect('leave-event', Lang.bind(this, function() {
 				Tweener.addTween(this.actor, {
 					opacity: ((Main.messageTray.fadeOpacity / 100) * 255).clamp(0, 255),
 					time: ANIMATION_TIME,
 					transition: 'easeOutQuad'
 				});
 			}));
-			this.leave_id = this.actor.connect('enter-event', Lang.bind(this, function() {
+			this.actor.connect('enter-event', Lang.bind(this, function() {
 				Tweener.addTween(this.actor, {
 					opacity: (this._table.get_theme_node().get_length('opacity') / global.ui_scale) || 255,
 					time: ANIMATION_TIME,
@@ -1405,7 +1402,6 @@ MessageTray.prototype = {
         this._notificationBin.hide();
         this._notificationQueue = [];
         this._notification = null;
-        this._notificationClickedId = 0;
         
         this._pointerBarrier = 0;
 
@@ -1693,8 +1689,6 @@ MessageTray.prototype = {
             this._notification.collapseCompleted();
             this._notification.actor._parent_container.remove_actor(this._notification.actor);
         }
-        this._notificationClickedId = this._notification.connect('done-displaying',
-                                                                 Lang.bind(this, this._escapeTray));
         this._notificationBin.child = this._notification.actor;
         this._notificationBin.opacity = 0;        
 
@@ -1737,7 +1731,7 @@ MessageTray.prototype = {
         // This ensures that both new notifications and notifications in the banner mode that might
         // have been in the process of hiding are shown with the banner height.
         //
-        // We use this._assignNotificationTimeout() onComplete callback to extend the time the updated
+        // We use this._assignNotificationTimeout() to extend the time the updated
         // notification is being shown.
         //
         // We don't set the y parameter for the tween for expanded notifications because
@@ -1814,8 +1808,6 @@ MessageTray.prototype = {
         this._notificationBin.hide();
         this._notificationBin.child = null;
         this._notification.collapseCompleted();
-        this._notification.disconnect(this._notificationClickedId);
-        this._notificationClickedId = 0;
         let notification = this._notification;
         if (AppletManager.get_role_provider_exists(AppletManager.Roles.NOTIFICATIONS) && !this._notificationRemoved) {
             this.emit('notify-applet-update', notification);
