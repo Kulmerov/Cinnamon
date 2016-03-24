@@ -1316,7 +1316,7 @@ MyApplet.prototype = {
         this._updatePlayerMenuItems();
     },
 
-    _notifyVolumeChange: function(stream) {
+    _notifyVolumeChange: function(stream, isMuted) {
     	let value = -1;
         if (isMuted) {
             value = 0;
